@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adota+</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+
+/* Paleta do Adota+ (edite aqui para mudar as cores do app inteiro)*/
+
+:root{--coral:#D85A30;--coral-suave:#F0997B;--pessego:#F5C4B3;--creme:#FFF6EC;--terracota:#993C1D;--cacau:#4A1B0C;--mel:#FAC775;--rosa:#F4C0D1;--menta:#9FE1CB;--menta-esc:#085041}
+*{box-sizing:border-box}
+
+body{margin:0;font-family:Nunito,system-ui,sans-serif;background:var(--pessego);color:var(--cacau);display:flex;justify-content:center}
+
+#app{width:100%;max-width:440px;min-height:100vh;background:var(--creme);display:flex;flex-direction:column}
+
+header{display:flex;align-items:center;gap:8px;padding:14px 16px;color:var(--terracota);font-weight:800;font-size:20px}
+header .logo{width:34px;height:34px;border-radius:50%;background:var(--coral-suave);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px}
+header b{color:var(--coral)}
+
+main{flex:1;padding:0 16px 90px;display:flex;flex-direction:column;gap:12px}
+
+h2{margin:4px 0;font-size:18px;color:var(--terracota)}
+.card{background:#fff;border:1px solid var(--pessego);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1}
+.sm{font-size:13px;color:var(--terracota)}
+
+input,select,textarea{width:100%;font:inherit;padding:10px 14px;border:1px solid var(--pessego);border-radius:16px;background:#fff;color:var(--cacau)}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--coral);outline-offset:1px}
+
+label{font-size:13px;font-weight:600;color:var(--terracota)}
+
+button{font:inherit;font-weight:800;border:0;border-radius:20px;padding:11px 16px;background:var(--coral);color:#fff;cursor:pointer}
+button.sec{background:#fff;color:var(--coral);border:1px solid var(--coral)}
+.selo{font-size:12px;font-weight:600;padding:2px 9px;border-radius:10px;background:var(--mel);color:#633806;white-space:nowrap}
+.selo.n1{background:var(--pessego);color:var(--cacau)}
+.selo.n3{background:var(--mel)}
+.selo.n2{background:#E8E6E1;color:#444}
+.av{width:48px;height:48px;border-radius:50%;background:var(--mel);color:#633806;display:flex;align-items:center;justify-content:center;font-size:26px}
+.av.gato{background:var(--rosa);color:#72243E}
+.msg{font-size:13px;font-weight:600;padding:8px 12px;border-radius:14px;background:var(--menta);color:var(--menta-esc)}
+.msg.erro{background:#FCEBEB;color:#791F1F}
+
+nav{position:fixed;bottom:0;width:100%;max-width:440px;display:flex;justify-content:space-around;background:#fff;border-top:1px solid var(--pessego);padding:10px 0}
+nav button{background:none;color:var(--coral-suave);font-size:24px;padding:4px 14px}
+nav button.ativo{color:var(--coral)}
+.passo{display:flex;align-items:center;gap:10px}
+
+</style>
+
+</head>
+
+<body>
+<div id="app">
+  <header><span class="logo"><i class="ti ti-paw"></i></span><span>Adota<b>+</b></span></header>
+  <main id="tela"></main>
+  <nav id="menu" hidden></nav>
+</div>
+
+<script>
+//Utilidades
+const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SELOS = {1:'Filhote', 2:'Patinha de prata', 3:'Patinha de ouro'};
+const selo = n => `<span class="selo n${n}"><i class="ti ti-paw"></i> ${SELOS[n]}</span>`;
+const idade = m => m < 12 ? `${m} meses` : `${Math.floor(m/12)} ano(s)`;
+const val = id => document.getElementById(id).value;
+let eu = null, aba = 'pets', modoLogin = true;
+
+async function api(url, metodo = 'GET', corpo) {
+  const r = await fetch(url, {method: metodo, headers: {'Content-Type':'application/json'}, body: corpo ? JSON.stringify(corpo) : undefined});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.erro || 'Algo deu errado. Tente de novo.');
+  return d;
+}
+async function apiForm(url, fd) {
+  const r = await fetch(url, {method: 'POST', body: fd});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.erro || 'Algo deu errado. Tente de novo.');
+  return d;
+}
+const aviso = (txt, erro) => { const e = document.getElementById('aviso'); if (e) e.innerHTML = `<div class="msg ${erro?'erro':''}">${esc(txt)}</div>`; };
+const tela = html => document.getElementById('tela').innerHTML = html;
+
+//Entrada e cadastro 
+function telaAuth() {
+  document.getElementById('menu').hidden = true;
+  tela(`
+    <h2>${modoLogin ? 'Que bom ter você de volta' : 'Crie sua conta'}</h2>
+    <div class="card">
+      ${modoLogin ? '' : `<label>Nome completo</label><input id="nome">`}
+      <label>E-mail</label><input id="email" type="email">
+      <label>Senha</label><input id="senha" type="password">
+      ${modoLogin ? '' : `
+      <label>CPF</label><input id="cpf" placeholder="000.000.000-00">
+      <label>Data de nascimento</label><input id="nasc" type="date">
+      <label>Cidade</label><input id="cidade">
+      <label>Eu quero</label>
+      <select id="tipo" onchange="document.getElementById('moradia').hidden = this.value !== 'adotante'">
+        <option value="adotante">Adotar um pet</option><option value="doador">Doar um pet</option></select>
+      <div id="moradia" class="card" style="border-style:dashed">
+        <label>Onde você mora</label>
+        <select id="tipo_moradia"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="sitio">Sítio</option></select>
+        <label><input type="checkbox" id="tela_prot" style="width:auto"> Moradia com telas de proteção</label>
+        <label><input type="checkbox" id="outros" style="width:auto"> Já tenho outros pets</label>
+      </div>
+      <label><input type="checkbox" id="lgpd" style="width:auto"> Concordo em compartilhar meus dados para verificação, conforme a LGPD.</label>`}
+      <div id="aviso"></div>
+      <button onclick="${modoLogin ? 'entrar()' : 'cadastrar()'}">${modoLogin ? 'Entrar' : 'Criar conta'}</button>
+      <button class="sec" onclick="modoLogin=!modoLogin;telaAuth()">${modoLogin ? 'Ainda não tenho conta' : 'Já tenho conta'}</button>
+    </div>`);
+}
+async function entrar() {
+  try { eu = await api('/api/login','POST',{email: val('email'), senha: val('senha')}); abrir('pets'); }
+  catch (e) { aviso(e.message, true); }
+}
+async function cadastrar() {
+  if (!document.getElementById('lgpd').checked) return aviso('Aceite o termo de uso de dados para continuar.', true);
+  try {
+    eu = await api('/api/cadastro','POST',{nome: val('nome'), email: val('email'), senha: val('senha'), cpf: val('cpf'),
+      data_nascimento: val('nasc'), cidade: val('cidade'), tipo: val('tipo'), tipo_moradia: val('tipo_moradia'),
+      possui_tela: document.getElementById('tela_prot').checked, tem_outros_pets: document.getElementById('outros').checked});
+    abrir('perfil');
+  } catch (e) { aviso(e.message, true); }
+}
+
+//Navegação
+function abrir(destino) {
+  aba = destino;
+  const itens = [['pets','ti-home'], ['comunidade','ti-users'], ...(eu.tipo === 'doador' ? [['novo','ti-plus']] : []), ['indicadores','ti-chart-bar'], ['perfil','ti-user']];
+  const menu = document.getElementById('menu');
+  menu.hidden = false;
+  menu.innerHTML = itens.map(([k,i]) => `<button class="${k===aba?'ativo':''}" aria-label="${k}" onclick="abrir('${k}')"><i class="ti ${i}"></i></button>`).join('');
+  ({pets: telaPets, comunidade: telaComunidade, novo: telaNovoPet, indicadores: telaIndicadores, perfil: telaPerfil})[destino]();
+}
+
+//Pets
+async function telaPets() {
+  tela(`<h2>Quem vai ganhar um amigo hoje?</h2>
+    <div class="row"><select id="f_esp" class="grow"><option value="">Todos</option><option value="cao">Cães</option><option value="gato">Gatos</option><option value="outro">Outros</option></select>
+    <input id="f_cid" class="grow" placeholder="Cidade"><button onclick="carregarPets()"><i class="ti ti-search"></i></button></div>
+    <div id="aviso"></div><div id="lista" class="row" style="flex-direction:column;align-items:stretch"></div>`);
+  carregarPets();
+}
+async function carregarPets() {
+  const q = new URLSearchParams({especie: val('f_esp'), cidade: val('f_cid')});
+  const pets = await api('/api/animais?' + q);
+  document.getElementById('lista').innerHTML = pets.length ? pets.map(p => `
+    <div class="card">
+      ${p.foto ? `<img src="/fotos/${esc(p.foto)}" alt="Foto de ${esc(p.nome)}" style="width:100%;height:170px;object-fit:cover;border-radius:14px">` : ''}
+      <div class="row">
+        ${p.foto ? '' : `<div class="av ${p.especie==='gato'?'gato':''}"><i class="ti ti-${p.especie==='gato'?'cat':'dog'}"></i></div>`}
+        <div class="grow"><b>${esc(p.nome)}</b><div class="sm">${esc(p.sexo)}, ${idade(p.idade_meses)}, ${esc(p.cor)} - ${esc(p.cidade)}</div></div>
+        ${selo(p.doador_nivel)}</div>
+      <div class="sm">${esc(p.descricao)}</div>
+      ${eu.tipo === 'adotante' ? `<button onclick="pedir(${p.id})">Quero adotar</button>` : ''}
+    </div>`).join('') : '<div class="card sm">Ainda não há pets com esses filtros. Tente outra cidade.</div>';
+}
+async function pedir(id) {
+  try { await api(`/api/animais/${id}/solicitar`,'POST',{}); aviso('Pedido enviado. O doador vai analisar seu perfil.'); }
+  catch (e) { aviso(e.message, true); }
+}
+function telaNovoPet() {
+  tela(`<h2>Cadastrar pet</h2><div class="card">
+    <label>Nome</label><input id="p_nome">
+    <label>Espécie</label><select id="p_esp"><option value="cao">Cão</option><option value="gato">Gato</option><option value="outro">Outro</option></select>
+    <label>Sexo</label><select id="p_sexo"><option value="macho">Macho</option><option value="femea">Fêmea</option></select>
+    <label>Idade em meses</label><input id="p_idade" type="number" min="0">
+    <label>Cor</label><input id="p_cor"><label>Porte</label><input id="p_porte" placeholder="Pequeno, médio, grande">
+    <label>Cidade</label><input id="p_cid" value="${esc(eu.cidade)}">
+    <label><input type="checkbox" id="p_cast" style="width:auto"> Castrado</label>
+    <label><input type="checkbox" id="p_vac" style="width:auto"> Vacinado</label>
+    <label>Foto do pet</label><input id="p_foto" type="file" accept="image/*"><label>Conte a história dele</label><textarea id="p_desc" rows="3"></textarea>
+    <div id="aviso"></div><button onclick="salvarPet()">Publicar para adoção</button></div>`);
+}
+async function salvarPet() {
+  try {
+    const r = await api('/api/animais','POST',{nome: val('p_nome'), especie: val('p_esp'), sexo: val('p_sexo'), idade_meses: val('p_idade'),
+      cor: val('p_cor'), porte: val('p_porte'), cidade: val('p_cid'), descricao: val('p_desc'),
+      castrado: document.getElementById('p_cast').checked, vacinado: document.getElementById('p_vac').checked});
+    const f = document.getElementById('p_foto').files[0];
+    if (f) { const fd = new FormData(); fd.append('foto', f);
+      try { await apiForm(`/api/animais/${r.id}/foto`, fd); } catch (e) { return aviso('Pet cadastrado, mas a foto não foi enviada: ' + e.message, true); } }
+    abrir('pets');
+  } catch (e) { aviso(e.message, true); }
+}
+
+//Comunidade
+const abertos = new Set();
+async function telaComunidade() {
+  tela(`<h2>Comunidade</h2><div class="card"><textarea id="txt" rows="2" placeholder="Compartilhe uma novidade ou faça uma pergunta"></textarea>
+    <div id="aviso"></div><button onclick="publicar()">Publicar</button></div><div id="posts"></div>`);
+  listarPosts();
+}
+async function listarPosts() {
+  const posts = await api('/api/posts');
+  document.getElementById('posts').innerHTML = posts.length ? posts.map(p => `
+    <div class="card" style="margin-bottom:10px"><div class="row"><b class="grow">${esc(p.autor)}</b>${selo(p.nivel_verificacao)}</div>
+    <div>${esc(p.texto)}</div><div class="sm">${esc(p.tipo)} - ${esc(p.criado_em.slice(0,16))}</div>
+    <div class="row"><button class="sec" onclick="curtir(${p.id})"><i class="ti ti-heart${p.curtiu ? '-filled' : ''}"></i> ${p.curtidas}</button>
+    <button class="sec" onclick="abrirComentarios(${p.id})"><i class="ti ti-message-circle"></i> ${p.comentarios}</button></div>
+    <div id="com_${p.id}"></div></div>`).join('') : '<div class="card sm">Ninguém postou ainda. Que tal ser a primeira pessoa?</div>';
+  abertos.forEach(mostrarComentarios);
+}
+async function mostrarComentarios(id) {
+  const el = document.getElementById('com_' + id); if (!el) return;
+  const cs = await api(`/api/posts/${id}/comentarios`);
+  el.innerHTML = cs.map(c => `<div class="sm"><b>${esc(c.autor)}</b> ${selo(c.nivel_verificacao)}<div style="color:var(--cacau)">${esc(c.texto)}</div></div>`).join('')
+    + `<div class="row"><input id="ct_${id}" placeholder="Escreva um comentário"><button aria-label="Enviar comentário" onclick="comentar(${id})"><i class="ti ti-send"></i></button></div>`;
+}
+async function abrirComentarios(id) {
+  if (abertos.has(id)) { abertos.delete(id); document.getElementById('com_' + id).innerHTML = ''; }
+  else { abertos.add(id); await mostrarComentarios(id); }
+}
+async function curtir(id) { try { await api(`/api/posts/${id}/curtir`, 'POST', {}); await listarPosts(); } catch (e) { alert(e.message); } }
+async function comentar(id) { try { await api(`/api/posts/${id}/comentarios`, 'POST', {texto: val('ct_' + id)}); await listarPosts(); } catch (e) { alert(e.message); } }
+async function publicar() {
+  try { await api('/api/posts','POST',{texto: val('txt')}); listarPosts(); document.getElementById('txt').value = ''; } catch (e) { aviso(e.message, true); }
+}
+
+// Perfil, selos e pedidos 
+const ETAPAS = [['documento','Documento (imagem anexada)','ti-id'], ['facial','Foto do Rosto','ti-face-id'],
+                ['casa','Casa telada','ti-home-check'], ['antecedentes','Antecedentes criminais','ti-file-certificate']];
+async function telaPerfil() {
+  eu = await api('/api/me');
+  const ver = await api('/api/verificacoes');
+  const status = t => (ver.find(v => v.tipo === t && v.status === 'aprovada') ? 'aprovada' : ver.find(v => v.tipo === t) ? 'pendente' : '');
+  let html = `<div class="card" style="background:var(--pessego)"><div class="sm">Olá, ${esc(eu.nome)}</div>
+    <div style="font-size:20px;font-weight:800">${SELOS[eu.nivel_verificacao]}</div>${selo(eu.nivel_verificacao)}</div>
+    <h2>Verificação</h2><div class="sm">Documento: anexe uma imagem do documento. Selfie e casa: no celular a câmera abre direto, tire a foto na hora. Os arquivos ficam em pasta privada.</div><div id="aviso"></div>` +
+    ETAPAS.filter(([t]) => !(eu.tipo === 'doador' && t === 'casa')).map(([t,nome,ic]) => `<div class="card"><div class="passo"><i class="ti ${ic}" style="font-size:22px"></i>
+      <div class="grow"><b>${nome}</b><div class="sm">${{aprovada:'Verificado', pendente:'Em análise'}[status(t)] || 'Ainda não enviado'}</div></div>
+      ${status(t) ? '' : `<input type="file" id="f_${t}" accept="${t === 'antecedentes' ? 'image/*,application/pdf' : 'image/*'}"${(t === 'facial' || t === 'casa') ? ' capture="' + (t === 'facial' ? 'user' : 'environment') + '"' : ''} hidden onchange="verificar('${t}')"><button onclick="document.getElementById('f_${t}').click()">${t === 'documento' ? 'Anexar imagem' : 'Enviar foto'}</button>`}</div></div>`).join('');
+  if (eu.tipo === 'doador') {
+    const pedidos = await api('/api/pedidos');
+    html += `<h2>Pedidos recebidos</h2>` + (pedidos.length ? pedidos.map(p => `<div class="card"><div class="row"><b class="grow">${esc(p.adotante)}</b>${selo(p.nivel_verificacao)}</div><div class="sm">Quer adotar ${esc(p.animal)} - ${esc(p.cidade)}</div><div class="sm">${esc(p.mensagem || '')}</div>${p.status === 'pendente' ? `<div class="row"><button onclick="decidir(${p.id},'aceita')">Aceitar</button><button class="sec" onclick="decidir(${p.id},'recusada')">Recusar</button></div>` : `<div class="sm"><b>${esc(p.status)}</b></div>`}</div>`).join('') : '<div class="card sm">Nenhum pedido ainda. Os mais verificados aparecem primeiro.</div>');
+  } else {
+    const meus = await api('/api/meus-pedidos');
+    html += `<h2>Meus pedidos</h2>` + (meus.length ? meus.map(p => `<div class="card"><div class="row"><b class="grow">${esc(p.animal)}</b><span class="sm">${esc(p.status)}</span></div><div class="sm">${esc(p.cidade)}</div></div>`).join('') : '<div class="card sm">Você ainda não fez pedidos de adoção.</div>');
+  }
+  html += `<button class="sec" onclick="sair()">Sair</button>`;
+  tela(html);
+}
+async function verificar(tipo) {
+  const f = document.getElementById('f_' + tipo).files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('tipo', tipo); fd.append('arquivo', f);
+  try { const r = await apiForm('/api/verificacoes', fd); await telaPerfil(); aviso(r.status === 'aprovada' ? 'Etapa aprovada.' : 'Recebemos seu envio. Vamos analisar.'); }
+  catch (e) { aviso(e.message, true); }
+}
+async function sair() { await api('/api/logout','POST',{}); eu = null; telaAuth(); }
+
+async function decidir(id, status) {
+  try { await api('/api/pedidos/' + id, 'PATCH', {status}); await telaPerfil(); aviso(status === 'aceita' ? 'Adoção aceita. O pet saiu da lista.' : 'Pedido recusado.'); }
+  catch (e) { aviso(e.message, true); }
+}
+async function telaIndicadores() {
+  const d = await api('/api/indicadores'), t = d.totais;
+  const barras = (titulo, linhas, rot, val) => { const max = Math.max(1, ...linhas.map(l => l[val]));
+    return `<div class="card"><b>${titulo}</b>` + (linhas.length ? linhas.map(l => `<div class="sm">${esc(l[rot])} (${l[val]})</div><div style="background:var(--pessego);border-radius:6px"><div style="width:${100 * l[val] / max}%;background:var(--coral);height:10px;border-radius:6px"></div></div>`).join('') : '<div class="sm">Ainda sem dados.</div>') + '</div>'; };
+  const caixa = (n, r) => `<div class="card grow" style="text-align:center"><b style="font-size:22px;color:var(--coral)">${n}</b><div class="sm">${r}</div></div>`;
+  tela(`<h2>Indicadores</h2><div class="row">${caixa(t.animais, 'animais')}${caixa(t.pedidos, 'pedidos')}${caixa(t.adotados, 'adotados')}</div>`
+    + barras('Pets disponíveis por espécie', d.animais_por_especie, 'especie', 'total')
+    + barras('Pedidos por animal', d.pedidos_por_animal, 'nome', 'pedidos')
+    + barras('Usuários por selo (1 Filhote, 2 Prata, 3 Ouro)', d.usuarios_por_selo, 'nivel', 'total')
+    + barras('Animais por cidade', d.animais_por_cidade, 'cidade', 'total'));
+}
+
+// Início 
+(async () => { eu = await api('/api/me'); eu ? abrir('pets') : telaAuth(); })();
+</script>
+</body>
+</html>

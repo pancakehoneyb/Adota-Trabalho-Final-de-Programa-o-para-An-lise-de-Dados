@@ -1,0 +1,13 @@
+# banco de dados local (contém dados de usuários: nunca vai para o Git)
+*.db
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+# CSVs com dados reais de ONGs: mantenha só o modelo no repositório
+dados/*.csv
+!dados/modelo_animais.csv
+
+# fotos e arquivos de verificação enviados pelos usuários (dados pessoais)
+uploads/
